@@ -2,21 +2,33 @@ const unified = require("unified");
 const remarkParse = require("remark-parse");
 const remarkToRehype = require("remark-rehype");
 const rehypeStringify = require("rehype-stringify");
-const specs = require("./spec.json");
+const remarkStringify = require("remark-stringify");
+const commonmarkSpecs = require("commonmark.json");
 
-const specTable = specs.map((spec) => [
-  spec.example,
-  spec.section,
-  spec.markdown,
-  spec.html,
-]);
-const pipeline = unified()
+const commonmarkSpecTable = commonmarkSpecs.map(
+  ({ section, markdown, html }) => [[section, markdown, html]]
+);
+const markdownToHtml = unified()
   .use(remarkParse, { commonmark: true, gfm: false, pedantic: false })
   .use(remarkToRehype, { allowDangerousHtml: true, commonmark: true })
   .use(rehypeStringify, { closeSelfClosing: true });
 
-describe.each(specTable)("%i %s", (...props) => {
-  test("output should match spec", () => {
-    expect(pipeline.processSync(props[2]).contents + "\n").toBe(props[3]);
+const markdownToMarkdown = unified()
+  .use(remarkParse, { commonmark: true, gfm: false, pedantic: false })
+  .use(remarkStringify, { allowDangerousHtml: true, commonmark: true });
+
+describe.each(commonmarkSpecTable)("%# %p", ([section, markdown, html]) => {
+  it("should produce html to spec", async () => {
+    await expect(markdownToHtml.process(markdown)).resolves.toHaveProperty(
+      "contents",
+      html
+    );
+  });
+
+  it("should produce same markdown", async () => {
+    await expect(markdownToMarkdown.process(markdown)).resolves.toHaveProperty(
+      "contents",
+      markdown
+    );
   });
 });
